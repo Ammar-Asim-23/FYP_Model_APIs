@@ -1,6 +1,7 @@
 # To run server, try fastapi dev main.py
 from fastapi import FastAPI, File, UploadFile, HTTPException,  Request
 from fastapi.responses import JSONResponse
+import uvicorn
 import shutil
 import os
 import json
@@ -65,3 +66,7 @@ async def predict_anomaly(request: Request):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
