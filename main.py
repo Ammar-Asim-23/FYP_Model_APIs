@@ -1,5 +1,6 @@
 # To run server, try fastapi dev main.py
 from fastapi import FastAPI, File, UploadFile, HTTPException,  Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import shutil
@@ -11,6 +12,15 @@ from model_utils import (
 )
 
 app = FastAPI()
+
+# CORS setup
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
