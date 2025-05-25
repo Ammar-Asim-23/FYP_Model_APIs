@@ -454,6 +454,37 @@ def load_latest_artifacts(base_dir="model_artifacts"):
 
     return artifacts
 
+# def process_input_data(data):
+#     """Process the input JSON data similar to prepare_anomaly_dataset function"""
+#     try:
+#         records = data["actions"][0]["obj"]
+#     except (KeyError, IndexError):
+#         raise ValueError("Invalid JSON format: expected 'actions[0].obj' structure")
+
+#     df_raw = pd.DataFrame(records)
+
+#     # Check if 'DateTimestamp' exists and is not all null
+#     if "DateTimestamp" not in df_raw.columns or df_raw["DateTimestamp"].isnull().all():
+#         if "createdAt" in df_raw.columns:
+#             # Convert 'createdAt' to 'DateTimestamp' format
+#             df_raw["DateTimestamp"] = pd.to_datetime(df_raw["createdAt"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+#             df_raw.drop(columns=["createdAt"], inplace=True)
+#         else:
+#             raise ValueError("Neither 'DateTimestamp' nor 'createdAt' is available in data")
+#     else:
+#         # If 'DateTimestamp' exists, make sure it's in the correct format
+#         df_raw["DateTimestamp"] = pd.to_datetime(df_raw["DateTimestamp"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+
+#     # Now select required columns (after ensuring DateTimestamp exists)
+#     df = df_raw[[
+#         "DateTimestamp", "selected_plc_line", "work_order",
+#         "batch_no", "serial_no"
+#     ]]
+
+#     df = prepare_predict_dataset(df)
+
+#     return df
+
 def process_input_data(data):
     """Process the input JSON data similar to prepare_anomaly_dataset function"""
     try:
@@ -463,19 +494,24 @@ def process_input_data(data):
 
     df_raw = pd.DataFrame(records)
 
-    # Check if 'DateTimestamp' exists and is not all null
-    if "DateTimestamp" not in df_raw.columns or df_raw["DateTimestamp"].isnull().all():
-        if "createdAt" in df_raw.columns:
-            # Convert 'createdAt' to 'DateTimestamp' format
-            df_raw["DateTimestamp"] = pd.to_datetime(df_raw["createdAt"]).dt.strftime('%Y-%m-%d %H:%M:%S')
-            df_raw.drop(columns=["createdAt"], inplace=True)
-        else:
-            raise ValueError("Neither 'DateTimestamp' nor 'createdAt' is available in data")
-    else:
-        # If 'DateTimestamp' exists, make sure it's in the correct format
-        df_raw["DateTimestamp"] = pd.to_datetime(df_raw["DateTimestamp"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+    # Step 1: Initialize DateTimestamp as NaT if column missing
+    if "DateTimestamp" not in df_raw.columns:
+        df_raw["DateTimestamp"] = pd.NaT
 
-    # Now select required columns (after ensuring DateTimestamp exists)
+    # Step 2: Parse existing DateTimestamp values
+    df_raw["DateTimestamp"] = pd.to_datetime(df_raw["DateTimestamp"], errors="coerce", utc=True)
+
+    # Step 3: Fill missing DateTimestamp with createdAt
+    created_at_parsed = pd.to_datetime(df_raw["createdAt"], errors="coerce", utc=True)
+    df_raw["DateTimestamp"] = df_raw["DateTimestamp"].fillna(created_at_parsed)
+
+    # Step 4: Drop rows where DateTimestamp is still missing
+    df_raw.dropna(subset=["DateTimestamp"], inplace=True)
+
+    # Step 5: Format to desired string
+    df_raw["DateTimestamp"] = df_raw["DateTimestamp"].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Step 6: Select required columns
     df = df_raw[[
         "DateTimestamp", "selected_plc_line", "work_order",
         "batch_no", "serial_no"
