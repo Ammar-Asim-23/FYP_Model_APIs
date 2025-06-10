@@ -55,6 +55,7 @@ def train_model():
         # Step 1: Fetch products data from the API
         api_url = "https://swift-cloud.ephlux.com/api-swift/ned/workflow/WMjqS3AlVn?SWIFT_API_KEY=XO50vr/_Yq3m6JeYvUaT2aE8rKG"
         response = requests.post(api_url)
+        print(response)
         
         if response.status_code != 200:
             raise HTTPException(
@@ -63,10 +64,13 @@ def train_model():
             )
         
         products_data = response.json()
-        
         # Step 2: Prepare and save the dataset
-        csv_path = prepare_and_save_dataset(products_data)
-        
+        prepare_and_save_dataset(products_data)
+        latest_files = sorted(os.listdir("prepared_dataset"), reverse=True)
+        if not latest_files:
+            raise FileNotFoundError("No prepared dataset found.")
+
+        csv_path = os.path.join("prepared_dataset", latest_files[0])
         # Step 3: Train the model
         model, history, X_test, y_test, y_scaler, X_scaler = train_lstm_model(csv_path)
         artifact_dir = save_artifacts(model, history, X_test, y_test, y_scaler, X_scaler)
