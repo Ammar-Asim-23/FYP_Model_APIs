@@ -3,6 +3,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException,  Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+import requests
 import shutil
 import os
 import json
@@ -47,20 +48,50 @@ async def preprocess_data(request: Request):
 @app.post("/train/")
 def train_model():
     """
-    Train the LSTM model from latest prepared dataset and save artifacts.
+    Train the LSTM model by first fetching products data from API, 
+    preparing the dataset, and then training the model.
     """
     try:
-        latest_files = sorted(os.listdir("prepared_dataset"), reverse=True)
-        if not latest_files:
-            raise FileNotFoundError("No prepared dataset found.")
-
-        csv_path = os.path.join("prepared_dataset", latest_files[0])
+        # Step 1: Fetch products data from the API
+        api_url = "https://swift-cloud.ephlux.com/api-swift/ned/workflow/WMjqS3AlVn?SWIFT_API_KEY=XO50vr/_Yq3m6JeYvUaT2aE8rKG"
+        response = requests.post(api_url)
+        
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Failed to fetch products data from API. Status code: {response.status_code}"
+            )
+        
+        products_data = response.json()
+        
+        # Step 2: Prepare and save the dataset
+        csv_path = prepare_and_save_dataset(products_data)
+        
+        # Step 3: Train the model
         model, history, X_test, y_test, y_scaler, X_scaler = train_lstm_model(csv_path)
         artifact_dir = save_artifacts(model, history, X_test, y_test, y_scaler, X_scaler)
 
         return {"message": "Training completed", "artifact_dir": artifact_dir}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+        
+# @app.post("/train/")
+# def train_model():
+#     """
+#     Train the LSTM model from latest prepared dataset and save artifacts.
+#     """
+#     try:
+#         latest_files = sorted(os.listdir("prepared_dataset"), reverse=True)
+#         if not latest_files:
+#             raise FileNotFoundError("No prepared dataset found.")
+
+#         csv_path = os.path.join("prepared_dataset", latest_files[0])
+#         model, history, X_test, y_test, y_scaler, X_scaler = train_lstm_model(csv_path)
+#         artifact_dir = save_artifacts(model, history, X_test, y_test, y_scaler, X_scaler)
+
+#         return {"message": "Training completed", "artifact_dir": artifact_dir}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/predict/")
 async def predict_anomaly(request: Request):
